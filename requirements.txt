@@ -1,6 +1,7 @@
 streamlit
 pandas
-beautifulsoup4
 requests
+beautifulsoup4
 serpapi
 openpyxl
+lxml

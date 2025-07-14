@@ -5,9 +5,8 @@ from bs4 import BeautifulSoup
 import re
 import tempfile
 from datetime import datetime
-import socket
 
-# IP-based Location Detection
+# 🌍 Detect user's state using IP
 def detect_user_state():
     try:
         ip_info = requests.get("https://ipinfo.io/json").json()
@@ -15,30 +14,35 @@ def detect_user_state():
     except:
         return ""
 
-# Fetch URLs from SerpAPI
+# 🔎 Fetch website URLs using SerpAPI (API key from secrets)
 def fetch_urls(query):
     from serpapi import GoogleSearch
-    SERP_API_KEY = "1c78cf22e8d628f3e830f6132bacb70f519fa7d5391a5d9666d21a687974f195"
+
+    SERP_API_KEY = st.secrets["SERPAPI_KEY"]
     params = {
         "engine": "google",
         "q": query,
         "api_key": SERP_API_KEY,
-        "num": 10,
+        "num": 10
     }
+
     search = GoogleSearch(params)
     results = search.get_dict()
     links = []
+
     if "organic_results" in results:
         for result in results["organic_results"]:
             link = result.get("link")
             if link:
                 links.append(link)
+
     return links
 
-# Scrape emails and phone numbers from websites
+# 🕵️‍♀️ Scrape emails & phone numbers
 def scrape_leads(urls):
     leads = []
     headers = {"User-Agent": "Mozilla/5.0"}
+
     for url in urls:
         try:
             response = requests.get(url, headers=headers, timeout=10)
@@ -58,9 +62,10 @@ def scrape_leads(urls):
             })
         except:
             continue
+
     return leads
 
-# Streamlit app
+# 🚀 Streamlit UI
 def main():
     st.set_page_config(page_title="Lead Scraper", layout="centered")
     st.title("🔍 Lead Scraper Tool (Free Beta)")

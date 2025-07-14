@@ -25,34 +25,29 @@ def detect_user_state():
     except:
         return "All India"
 
-# 🔎 Fetch website URLs using SerpAPI (in batches)
-def fetch_urls(query, state, batch_count):
+# 🔎 Fetch website URLs using SerpAPI
+def fetch_urls(query, state):
     SERP_API_KEY = st.secrets["SERP_API_KEY"]
     full_query = f"{query} in {state}" if state != "All India" else query
 
+    params = {
+        "engine": "google",
+        "q": full_query,
+        "api_key": SERP_API_KEY,
+        "num": 10
+    }
+
+    search = GoogleSearch(params)
+    results = search.get_dict()
     links = []
-    results_per_page = 10
-    pages_needed = batch_count // results_per_page
 
-    for page in range(pages_needed):
-        params = {
-            "engine": "google",
-            "q": full_query,
-            "api_key": SERP_API_KEY,
-            "num": results_per_page,
-            "start": page * results_per_page
-        }
+    if "organic_results" in results:
+        for result in results["organic_results"]:
+            link = result.get("link")
+            if link:
+                links.append(link)
 
-        search = GoogleSearch(params)
-        results = search.get_dict()
-
-        if "organic_results" in results:
-            for result in results["organic_results"]:
-                link = result.get("link")
-                if link and not link.startswith("https://webcache.googleusercontent.com"):
-                    links.append(link)
-
-    return list(set(links))  # Deduplicate
+    return links
 
 # 🕵️‍♀️ Scrape emails & phone numbers
 def scrape_leads(urls):
@@ -96,9 +91,7 @@ def main():
     with col1:
         keyword = st.text_input("Enter your search keyword:", placeholder="e.g., sports shop")
     with col2:
-        filter_option = st.selectbox("Filter leads with:", ["All", "Email only", "Phone only", "Both"])
-
-    batch_count = st.selectbox("🔢 Number of websites to scrape:", [10, 20, 30, 50], index=1)
+        filter_options = st.multiselect("Filter leads with:", ["Emails", "Phones"], default=["Emails", "Phones"])
 
     if st.button("Scrape Leads"):
         if not keyword.strip():
@@ -106,7 +99,7 @@ def main():
             return
 
         st.info("🔎 Fetching websites...")
-        urls = fetch_urls(keyword, state_filter, batch_count)
+        urls = fetch_urls(keyword, state_filter)
 
         if not urls:
             st.error("No valid websites found.")
@@ -122,15 +115,15 @@ def main():
 
         df = pd.DataFrame(leads)
 
-        # Apply filters
-        if filter_option == "Email only":
-            df = df[df["Emails"].str.strip() != ""]
-            df = df[df["Phones"].str.strip() == ""]
-        elif filter_option == "Phone only":
-            df = df[df["Phones"].str.strip() != ""]
-            df = df[df["Emails"].str.strip() == ""]
-        elif filter_option == "Both":
-            df = df[(df["Emails"].str.strip() != "") & (df["Phones"].str.strip() != "")]
+        # Apply multi-select filter
+        if "Emails" in filter_options and "Phones" not in filter_options:
+            df = df[(df["Emails"].str.strip() != "") & (df["Phones"].str.strip() == "")]
+        elif "Phones" in filter_options and "Emails" not in filter_options:
+            df = df[(df["Phones"].str.strip() != "") & (df["Emails"].str.strip() == "")]
+        elif "Emails" in filter_options and "Phones" in filter_options:
+            df = df[(df["Emails"].str.strip() != "") | (df["Phones"].str.strip() != "")]
+        else:
+            df = pd.DataFrame()  # No filter selected
 
         if df.empty:
             st.warning("No leads matched the selected filter.")

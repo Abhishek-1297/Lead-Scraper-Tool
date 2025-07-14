@@ -25,29 +25,34 @@ def detect_user_state():
     except:
         return "All India"
 
-# 🔎 Fetch website URLs using SerpAPI
-def fetch_urls(query, state):
+# 🔎 Fetch website URLs using SerpAPI (in batches)
+def fetch_urls(query, state, batch_count):
     SERP_API_KEY = st.secrets["SERP_API_KEY"]
     full_query = f"{query} in {state}" if state != "All India" else query
 
-    params = {
-        "engine": "google",
-        "q": full_query,
-        "api_key": SERP_API_KEY,
-        "num": 10
-    }
-
-    search = GoogleSearch(params)
-    results = search.get_dict()
     links = []
+    results_per_page = 10
+    pages_needed = batch_count // results_per_page
 
-    if "organic_results" in results:
-        for result in results["organic_results"]:
-            link = result.get("link")
-            if link:
-                links.append(link)
+    for page in range(pages_needed):
+        params = {
+            "engine": "google",
+            "q": full_query,
+            "api_key": SERP_API_KEY,
+            "num": results_per_page,
+            "start": page * results_per_page
+        }
 
-    return links
+        search = GoogleSearch(params)
+        results = search.get_dict()
+
+        if "organic_results" in results:
+            for result in results["organic_results"]:
+                link = result.get("link")
+                if link and not link.startswith("https://webcache.googleusercontent.com"):
+                    links.append(link)
+
+    return list(set(links))  # Deduplicate
 
 # 🕵️‍♀️ Scrape emails & phone numbers
 def scrape_leads(urls):
@@ -93,13 +98,15 @@ def main():
     with col2:
         filter_option = st.selectbox("Filter leads with:", ["All", "Email only", "Phone only", "Both"])
 
+    batch_count = st.selectbox("🔢 Number of websites to scrape:", [10, 20, 30, 50], index=1)
+
     if st.button("Scrape Leads"):
         if not keyword.strip():
             st.error("Please enter a keyword.")
             return
 
         st.info("🔎 Fetching websites...")
-        urls = fetch_urls(keyword, state_filter)
+        urls = fetch_urls(keyword, state_filter, batch_count)
 
         if not urls:
             st.error("No valid websites found.")

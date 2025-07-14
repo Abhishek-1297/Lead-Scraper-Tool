@@ -5,23 +5,34 @@ from bs4 import BeautifulSoup
 import re
 import tempfile
 from datetime import datetime
+from serpapi import GoogleSearch
+
+# 🌍 Indian States for Manual Selection
+INDIAN_STATES = [
+    "All India", "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh",
+    "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala",
+    "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland",
+    "Odisha", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "Tripura",
+    "Uttar Pradesh", "Uttarakhand", "West Bengal", "Delhi", "Jammu and Kashmir"
+]
 
 # 🌍 Detect user's state using IP
 def detect_user_state():
     try:
         ip_info = requests.get("https://ipinfo.io/json").json()
-        return ip_info.get("region", "")
+        region = ip_info.get("region", "")
+        return region if region in INDIAN_STATES else "All India"
     except:
-        return ""
+        return "All India"
 
-# 🔎 Fetch website URLs using SerpAPI (API key from secrets)
-def fetch_urls(query):
-    from serpapi import GoogleSearch
+# 🔎 Fetch website URLs using SerpAPI
+def fetch_urls(query, state):
+    SERP_API_KEY = st.secrets["SERP_API_KEY"]
+    full_query = f"{query} in {state}" if state != "All India" else query
 
-    SERP_API_KEY = st.secrets["SERPAPI_KEY"]
     params = {
         "engine": "google",
-        "q": query,
+        "q": full_query,
         "api_key": SERP_API_KEY,
         "num": 10
     }
@@ -70,11 +81,13 @@ def main():
     st.set_page_config(page_title="Lead Scraper", layout="centered")
     st.title("🔍 Lead Scraper Tool (Free Beta)")
 
-    default_state = detect_user_state()
-    st.write(f"📍 Detected Location: `{default_state}`")
+    detected_state = detect_user_state()
+    st.write(f"📍 Auto-detected Location: `{detected_state}`")
+
+    state_filter = st.selectbox("🎯 Select your state (or override)", INDIAN_STATES,
+                                index=INDIAN_STATES.index(detected_state))
 
     col1, col2 = st.columns(2)
-
     with col1:
         keyword = st.text_input("Enter your search keyword:", placeholder="e.g., sports shop")
     with col2:
@@ -86,7 +99,7 @@ def main():
             return
 
         st.info("🔎 Fetching websites...")
-        urls = fetch_urls(keyword + " " + default_state)
+        urls = fetch_urls(keyword, state_filter)
 
         if not urls:
             st.error("No valid websites found.")

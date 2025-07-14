@@ -5,8 +5,7 @@ from bs4 import BeautifulSoup
 import re
 import tempfile
 from datetime import datetime
-
-from serpapi import GoogleSearch
+from serpapi import GoogleSearch  # ← ADD THIS
 
 SERP_API_KEY = st.secrets["SERPAPI_KEY"]
 
